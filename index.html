@@ -2,406 +2,227 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>3DS Browser Feature Showcase</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3DS → Phone: Image Uploader</title>
 <style>
-  /* Simple, lightweight styles for small screens like 3DS */
-  :root { --bg:#0d1117; --fg:#e6edf3; --muted:#8b949e; --ok:#2ea043; --bad:#f85149; --warn:#d29922; --card:#161b22; --accent:#58a6ff; }
-  * { box-sizing: border-box; }
-  html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, -apple-system, Segoe UI, Arial, sans-serif; }
-  header { position:fixed; top:0; left:0; right:0; background:#0b0f14; border-bottom:1px solid #222; padding:8px 10px; z-index:999; }
-  header h1 { margin:0; font-size:16px; }
-  header small { color:var(--muted); }
-  main { padding:70px 10px 20px; max-width:640px; margin:0 auto; }
-  .card { background:var(--card); border:1px solid #262b33; border-radius:10px; padding:10px; margin:10px 0; }
-  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; border-top:1px solid #222; padding:6px 0; }
-  .row:first-child { border-top:0; }
-  .k { color:var(--muted); }
-  .v { font-weight:bold; }
-  .pass { color:var(--ok); }
-  .fail { color:var(--bad); }
-  .warn { color:var(--warn); }
-  .btn { display:inline-block; padding:8px 10px; border-radius:8px; border:1px solid #2a2f38; background:#12161d; color:var(--fg); text-decoration:none; font-weight:bold; }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .demoBox { background:#0f141b; border:1px dashed #2a2f38; border-radius:10px; padding:10px; min-height:60px; }
-  .touchBox { height:100px; }
-  .badge { display:inline-block; padding:2px 6px; border-radius:6px; border:1px solid #2a2f38; font-size:12px; color:var(--muted); }
-  .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #2a2f38; font-size:12px; margin:2px 4px 0 0; }
-  .center { text-align:center; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-  .imgRow { display:flex; gap:8px; align-items:center; }
-  .imgRow img { display:block; border-radius:6px; border:1px solid #2a2f38; }
-  .spin { display:inline-block; width:24px; height:24px; border-radius:50%; border:3px solid #2a2f38; border-top-color:var(--accent); animation:spin 1.2s linear infinite; vertical-align:middle; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  /* Minimal CSS animation/transform demo */
-  .square { width:30px; height:30px; background:#58a6ff; display:inline-block; margin:0 6px; }
-  .spin2 { animation:spin 2s linear infinite; }
-  .tilt { transform:rotate(-10deg); }
-  /* Make tables readable on tiny screens */
-  .features .row { flex-wrap:wrap; }
-  .features .k { width:60%; }
-  .features .v { width:38%; text-align:right; }
+  :root{--bg:#0d1117;--fg:#e6edf3;--muted:#8b949e;--card:#161b22;--line:#262b33;--accent:#58a6ff;--ok:#2ea043;--bad:#f85149;}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:14px/1.35 -apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif}
+  header{padding:10px;border-bottom:1px solid #222;background:#0b0f14;position:sticky;top:0;z-index:10}
+  header h1{margin:0;font-size:16px}
+  main{max-width:700px;margin:0 auto;padding:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}
+  .row{display:flex;align-items:center;gap:8px}
+  .grid{display:grid;grid-template-columns:1fr;gap:10px}
+  @media (min-width:560px){.grid2{grid-template-columns:1fr 1fr}}
+  .btn{display:inline-block;border:1px solid var(--line);background:#0f141b;color:var(--fg);padding:8px 10px;border-radius:8px;font-weight:700;text-decoration:none}
+  .btn[disabled]{opacity:.5}
+  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--muted);font-size:12px;margin-right:6px}
+  .muted{color:var(--muted)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  .thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .thumb{border:1px solid var(--line);border-radius:8px;overflow:hidden;width:84px;height:84px;background:#0b0f14;display:flex;align-items:center;justify-content:center}
+  .thumb img{max-width:100%;max-height:100%;display:block}
+  .list{border-top:1px solid var(--line);margin-top:8px}
+  .item{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:0}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+  .qr{width:120px;height:120px;border:1px solid var(--line);border-radius:8px;background:#0b0f14}
+  progress{width:100%;height:12px}
+  .center{text-align:center}
 </style>
 </head>
 <body>
-<header>
-  <h1>3DS Browser Feature Showcase <small class="badge">static • no external assets</small></h1>
-</header>
-
+<header><h1>3DS → Phone: Image Uploader</h1></header>
 <main>
-  <!-- Device info -->
   <section class="card">
-    <div class="row"><span class="k">User Agent</span><span class="v mono" id="ua">(detecting…)</span></div>
-    <div class="row"><span class="k">Screen (CSS)</span><span class="v" id="scr">(detecting…)</span></div>
-    <div class="row"><span class="k">Touch Support</span><span class="v" id="touch">(detecting…)</span></div>
-  </section>
-
-  <!-- Feature matrix -->
-  <section class="card features" id="featureCard">
-    <div class="row"><span class="k">JavaScript</span><span class="v pass">ENABLED</span></div>
-    <!-- JS will append many rows here -->
-  </section>
-
-  <!-- Media demos -->
-  <section class="card">
-    <h2>Images</h2>
-    <div class="imgRow">
-      <!-- tiny inline PNG (blue pixel scaled up via width/height) -->
-      <img id="pngDemo" width="48" height="48" alt="PNG" title="PNG (inline data URI)"
-        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVQImWNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=">
-      <!-- simple inline SVG fallback shape -->
-      <svg id="svgDemo" width="48" height="48" viewBox="0 0 48 48" aria-label="SVG">
-        <rect x="2" y="2" width="44" height="44" fill="#2ea043" stroke="#2a2f38" stroke-width="2"></rect>
-        <circle cx="24" cy="24" r="10" fill="#58a6ff"></circle>
-      </svg>
-      <div class="pill">PNG</div><div class="pill">SVG</div>
+    <div class="row" style="justify-content:space-between">
+      <div><span class="pill">Static</span><span class="pill">No login</span><span class="pill">Multi-image</span></div>
+      <div class="muted">Tip: Scan the QR codes with your phone.</div>
     </div>
   </section>
 
   <section class="card">
-    <h2>Audio</h2>
-    <p class="k">If the controls below are usable, the browser exposes HTML5 <code class="mono">&lt;audio&gt;</code>.</p>
-    <div class="demoBox">
-      <audio id="audioDemo" controls preload="none">
-        <!-- We intentionally omit sources to avoid large inline assets. If supported, controls appear. -->
-        Your browser does not support the audio element.
-      </audio>
-    </div>
-  </section>
-
-  <!-- Canvas -->
-  <section class="card">
-    <h2>Canvas 2D</h2>
-    <div class="demoBox center">
-      <canvas id="c" width="240" height="120" style="border:1px solid #2a2f38; border-radius:6px; background:#0b0f14;"></canvas>
-      <div class="k">Bouncing ball + checkerboard (uses <span class="mono">CanvasRenderingContext2D</span>)</div>
-    </div>
-  </section>
-
-  <!-- CSS transforms/animation -->
-  <section class="card">
-    <h2>CSS Animations & Transforms</h2>
-    <div class="demoBox center">
-      <span class="square spin2" title="animation"></span>
-      <span class="square tilt" title="transform"></span>
-    </div>
-  </section>
-
-  <!-- Forms -->
-  <section class="card">
-    <h2>Forms</h2>
-    <div class="grid">
-      <label class="demoBox">
-        <div class="k">Text</div>
-        <input type="text" placeholder="hello">
+    <div class="grid grid2">
+      <label>
+        <div class="muted">Pick images (multiple OK)</div>
+        <input id="fileIn" type="file" accept="image/*" multiple style="margin-top:6px;width:100%">
       </label>
-      <label class="demoBox">
-        <div class="k">Email (HTML5)</div>
-        <input type="email" placeholder="name@example.com" required>
-      </label>
-      <label class="demoBox">
-        <div class="k">Date (HTML5)</div>
-        <input type="date" id="dateIn">
-      </label>
-      <label class="demoBox">
-        <div class="k">Color (HTML5)</div>
-        <input type="color" id="colorIn" value="#58a6ff">
-      </label>
-      <label class="demoBox">
-        <div class="k">File input</div>
-        <input type="file" id="fileIn" accept="image/*">
-      </label>
-      <div class="demoBox">
-        <div class="k">Form validation</div>
-        <form id="miniForm" novalidate>
-          <input type="text" id="nameField" placeholder="Required" required>
-          <button class="btn" type="submit">Submit</button>
-          <div id="formMsg" class="k"></div>
-        </form>
-      </div>
-    </div>
-  </section>
-
-  <!-- Touch / pointer -->
-  <section class="card">
-    <h2>Touch / Pointer Events</h2>
-    <div class="demoBox touchBox" id="touchBox">Tap/drag here</div>
-    <div class="k" id="touchOut">No events yet.</div>
-  </section>
-
-  <!-- Storage -->
-  <section class="card">
-    <h2>Storage & Cookies</h2>
-    <div class="grid">
-      <div class="demoBox">
-        <div class="k">localStorage counter</div>
-        <div class="row"><span class="k">Visits</span><span class="v" id="lsCount">0</span></div>
-        <div class="center" style="margin-top:8px;">
-          <button class="btn" id="lsBump">+1</button>
-          <button class="btn" id="lsReset">Reset</button>
+      <div>
+        <div class="muted">Upload target</div>
+        <div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">
+          <button id="upLitter" class="btn">Upload (Temporary 12h)</button>
+          <button id="upCatbox" class="btn">Upload (Permanent)</button>
+          <button id="clearBtn" class="btn" title="Clear results">Clear</button>
         </div>
       </div>
-      <div class="demoBox">
-        <div class="k">Cookies</div>
-        <div class="row"><span class="k">Cookie set</span><span class="v" id="cookieSet">…</span></div>
-        <div class="row"><span class="k">Cookie get</span><span class="v" id="cookieGet">…</span></div>
-      </div>
     </div>
+    <div id="thumbs" class="thumbs"></div>
+    <div id="status" class="muted" style="margin-top:8px">No files selected.</div>
+    <div style="margin-top:8px"><progress id="prog" max="100" value="0" hidden></progress></div>
   </section>
 
-  <!-- Sensors / Geo -->
   <section class="card">
-    <h2>Sensors & Location</h2>
-    <div class="grid">
-      <div class="demoBox">
-        <div class="k">Device Orientation</div>
-        <div id="ori">Waiting…</div>
-      </div>
-      <div class="demoBox">
-        <div class="k">Geolocation</div>
-        <button class="btn" id="geoBtn">Request Location</button>
-        <div id="geoOut" class="k" style="margin-top:6px;">Not requested.</div>
-      </div>
-    </div>
+    <h3 style="margin:4px 0 8px">Results</h3>
+    <div class="list" id="results"></div>
+    <div class="muted" id="note" style="margin-top:8px"></div>
   </section>
 
-  <!-- Networking -->
   <section class="card">
-    <h2>Networking (XHR)</h2>
-    <div class="demoBox">
-      <button class="btn" id="xhrBtn">Run tiny XHR (data: URL)</button>
-      <div id="xhrOut" class="k" style="margin-top:6px;">Idle.</div>
-    </div>
+    <h3 style="margin:4px 0 8px">How to use (quick)</h3>
+    <ol style="margin:0 0 6px 18px">
+      <li>On your 3DS, open this page, pick multiple images, press an Upload button.</li>
+      <li>Each uploaded file shows a URL and a QR. Scan the QR with your phone to download.</li>
+    </ol>
+    <div class="muted">Temporary = expires (~12 hours). Permanent = doesn’t expire. If temporary fails, try Permanent.</div>
   </section>
 
-  <!-- Iframe -->
-  <section class="card">
-    <h2>Inline Iframe</h2>
-    <div class="demoBox">
-      <iframe id="frame" title="Inline demo" style="width:100%; height:70px; border:1px solid #2a2f38; border-radius:6px;"
-        src="data:text/html;charset=utf-8,%3C!DOCTYPE%20html%3E%3Cmeta%20charset%3Dutf-8%3E%3Cstyle%3Ebody%7Bmargin:0;font:12px%20sans-serif;background:%23161b22;color:%23e6edf3%7D%3C/style%3E%3Cdiv%20style%3D%27padding:8px%27%3EHello%20from%20an%20inline%20iframe.%3C/div%3E"></iframe>
-    </div>
-  </section>
-
-  <!-- Notes -->
-  <section class="card">
-    <h2>Notes</h2>
-    <p class="k">This page detects and demonstrates features available to your browser. On Nintendo 3DS, some HTML5 inputs or APIs may be absent or partially implemented; the matrix above will mark those.</p>
-  </section>
-
-  <p class="center k">© Demo. No tracking. No external requests.</p>
+  <p class="center muted">© demo. uses third-party file hosts. no tracking.</p>
 </main>
 
 <script>
-(function () {
-  // Helpers
+(function(){
+  // Endpoints (try Litterbox first; fall back to Catbox)
+  var ENDPOINT = {
+    LITTERBOX: 'https://litterbox.catbox.moe/resources/internals/api.php',
+    CATBOX:    'https://catbox.moe/user/api.php'
+  };
+
+  // Elements
   function q(id){ return document.getElementById(id); }
-  function addRow(name, ok, note) {
-    var row = document.createElement('div'); row.className = 'row';
-    var k = document.createElement('span'); k.className = 'k'; k.appendChild(document.createTextNode(name));
-    var v = document.createElement('span'); v.className = 'v ' + (ok===true?'pass':ok===false?'fail':'warn');
-    v.appendChild(document.createTextNode(ok===true?'PASS':ok===false?'FAIL':note||'—'));
-    row.appendChild(k); row.appendChild(v);
-    q('featureCard').appendChild(row);
+  var fileIn = q('fileIn'), thumbs = q('thumbs'), status = q('status'), results = q('results');
+  var upLitter = q('upLitter'), upCat = q('upCatbox'), prog = q('prog'), note = q('note'), clearBtn = q('clearBtn');
+
+  // State
+  var files = [];
+
+  function fmtBytes(n){
+    var u=['B','KB','MB','GB']; var i=0; while(n>=1024 && i<u.length-1){ n/=1024; i++; }
+    return (Math.round(n*10)/10)+' '+u[i];
   }
 
-  // Device info
-  q('ua').textContent = navigator.userAgent || '(unknown)';
-  q('scr').textContent = (window.innerWidth||0) + '×' + (window.innerHeight||0) + ' CSS px';
-  var touchCap = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
-  q('touch').innerHTML = touchCap ? '<span class="pass">YES</span>' : '<span class="fail">NO</span>';
-
-  // Feature detection
-  try {
-    addRow('DOM Level 2 Events', !!window.addEventListener);
-    var cv = document.createElement('canvas');
-    addRow('Canvas 2D', !!(cv.getContext && cv.getContext('2d')));
-    var aud = document.createElement('audio');
-    addRow('HTML5 Audio', !!(aud && aud.canPlayType));
-    var vid = document.createElement('video');
-    addRow('HTML5 Video element', !!vid);
-    addRow('localStorage', (function(){ try{ localStorage.setItem('_t','1'); localStorage.removeItem('_t'); return true; }catch(e){ return false; } })());
-    addRow('sessionStorage', (function(){ try{ sessionStorage.setItem('_t','1'); sessionStorage.removeItem('_t'); return true; }catch(e){ return false; } })());
-    addRow('Cookies', navigator.cookieEnabled === true);
-    addRow('XHR (XMLHttpRequest)', !!window.XMLHttpRequest);
-    addRow('SVG (inline)', (function(){ try{ return !!document.createElementNS && !!document.createElementNS('http://www.w3.org/2000/svg','svg').createSVGRect; }catch(e){ return false; } })());
-    var el = document.createElement('div').style;
-    addRow('CSS Transforms', ('transform' in el) || ('webkitTransform' in el) || ('msTransform' in el));
-    addRow('CSS Animations', ('animationName' in el) || ('webkitAnimationName' in el));
-    addRow('Geolocation API', !!navigator.geolocation);
-    addRow('DeviceOrientation', 'DeviceOrientationEvent' in window);
-    // Input types
-    function inputTypeSupported(t){
-      var i = document.createElement('input'); i.setAttribute('type', t); i.value=':(';
-      return i.type === t && i.value === '';
+  function renderThumbs(){
+    thumbs.innerHTML='';
+    if(!files.length){ status.textContent='No files selected.'; return; }
+    for(var i=0;i<files.length;i++){
+      (function(file){
+        var div=document.createElement('div'); div.className='thumb';
+        var img=document.createElement('img');
+        // Show tiny preview (safe for 3DS)
+        var r=new FileReader();
+        r.onload=function(){ img.src=r.result; };
+        r.readAsDataURL(file);
+        div.appendChild(img); thumbs.appendChild(div);
+      })(files[i]);
     }
-    addRow('Input type="email"', inputTypeSupported('email'));
-    addRow('Input type="date"', inputTypeSupported('date'));
-    addRow('Input type="color"', inputTypeSupported('color'));
-    // Iframe src=data URL
-    (function(){
-      try {
-        var ok = !!document.createElement('iframe');
-        addRow('Iframe (data: URL)', ok);
-      } catch(e) { addRow('Iframe (data: URL)', false); }
-    })();
-  } catch (e) {
-    addRow('Detection error', null, 'Error occurred');
+    status.textContent=files.length+' file(s) selected, total ~'+fmtBytes(files.reduce(function(a,f){return a+f.size;},0));
   }
 
-  // Canvas demo
-  (function(){
-    var c = q('c'); if (!c || !c.getContext) return;
-    var ctx = c.getContext('2d'); if (!ctx) return;
-    var w = c.width, h = c.height;
-    var x = 20, y = 20, vx = 1.2, vy = 0.9, r = 10;
-    function frame(){
-      // bg
-      ctx.fillStyle = '#0b0f14'; ctx.fillRect(0,0,w,h);
-      // checker
-      var sz = 10;
-      for (var yy=0; yy<h; yy+=sz) {
-        for (var xx=0; xx<w; xx+=sz) {
-          if (((xx+yy)/sz)%2===0) { ctx.fillStyle = '#11161d'; } else { ctx.fillStyle='#0e131a'; }
-          ctx.fillRect(xx,yy,sz,sz);
-        }
-      }
-      // ball
-      x += vx; y += vy;
-      if (x<r || x>w-r) vx = -vx;
-      if (y<r || y>h-r) vy = -vy;
-      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
-      ctx.fillStyle = '#58a6ff'; ctx.fill();
-      ctx.strokeStyle = '#2a2f38'; ctx.stroke();
-    }
-    setInterval(frame, 33);
-  })();
-
-  // Form validate
-  q('miniForm').addEventListener('submit', function(ev){
-    var msg = q('formMsg');
-    if (!q('nameField').value) {
-      msg.textContent = 'Required field missing.';
-      ev.preventDefault();
-      return false;
-    } else {
-      msg.textContent = 'Submitted (no network).';
-      ev.preventDefault();
-      return false;
-    }
+  fileIn.addEventListener('change', function(){
+    files = Array.prototype.slice.call(fileIn.files||[]);
+    renderThumbs();
   }, false);
 
-  // Touch box
-  (function(){
-    var box = q('touchBox'), out = q('touchOut');
-    function say(t){ out.textContent = t; }
-    if ('ontouchstart' in window) {
-      box.addEventListener('touchstart', function(e){ var t=e.touches[0]; say('touchstart '+t.clientX+','+t.clientY); }, false);
-      box.addEventListener('touchmove',  function(e){ var t=e.touches[0]; say('touchmove '+t.clientX+','+t.clientY); e.preventDefault(); }, false);
-      box.addEventListener('touchend',   function(){ say('touchend'); }, false);
-    } else {
-      box.addEventListener('mousedown', function(e){ say('mousedown '+e.clientX+','+e.clientY); }, false);
-      box.addEventListener('mousemove', function(e){ say('mousemove '+e.clientX+','+e.clientY); }, false);
-      box.addEventListener('mouseup',   function(){ say('mouseup'); }, false);
-    }
-  })();
-
-  // Storage demo
-  (function(){
-    var count = 0, hasLS = false;
-    try {
-      hasLS = !!window.localStorage;
-      if (hasLS) {
-        var v = localStorage.getItem('demo_visits');
-        count = v ? parseInt(v, 10) : 0;
-      }
-    } catch(e){}
-    function render(){ q('lsCount').textContent = count; }
-    render();
-    q('lsBump').addEventListener('click', function(){
-      count += 1; render();
-      try { if (hasLS) localStorage.setItem('demo_visits', String(count)); }catch(e){}
-    }, false);
-    q('lsReset').addEventListener('click', function(){
-      count = 0; render();
-      try { if (hasLS) localStorage.removeItem('demo_visits'); }catch(e){}
-    }, false);
-    // Cookies
-    var setOK = false, getOK = false;
-    try {
-      document.cookie = "demo_cookie=1; path=/; max-age=3600";
-      setOK = true;
-      getOK = (document.cookie.indexOf('demo_cookie=1') !== -1);
-    } catch(e){}
-    q('cookieSet').innerHTML = setOK ? '<span class="pass">OK</span>' : '<span class="fail">FAIL</span>';
-    q('cookieGet').innerHTML = getOK ? '<span class="pass">READ</span>' : '<span class="fail">MISSING</span>';
-  })();
-
-  // Orientation
-  (function(){
-    var has = ('DeviceOrientationEvent' in window);
-    var ori = q('ori');
-    if (!has) { ori.innerHTML = '<span class="fail">Not available</span>'; return; }
-    window.addEventListener('deviceorientation', function(e){
-      var a = Math.round(e.alpha||0), b = Math.round(e.beta||0), g = Math.round(e.gamma||0);
-      ori.textContent = 'α '+a+'  β '+b+'  γ '+g;
-    }, false);
-  })();
-
-  // Geolocation
-  q('geoBtn').addEventListener('click', function(){
-    var out = q('geoOut');
-    if (!navigator.geolocation) { out.innerHTML = '<span class="fail">Not supported</span>'; return; }
-    out.innerHTML = '<span class="spin" aria-hidden="true"></span> Requesting…';
-    navigator.geolocation.getCurrentPosition(function(pos){
-      var c = pos.coords;
-      out.textContent = 'lat '+c.latitude.toFixed(5)+'  lon '+c.longitude.toFixed(5);
-    }, function(err){
-      out.innerHTML = '<span class="warn">Denied/Unavailable</span>';
-    }, { maximumAge: 30000, timeout: 8000, enableHighAccuracy: false });
+  clearBtn.addEventListener('click', function(){
+    files=[]; fileIn.value=''; thumbs.innerHTML=''; results.innerHTML=''; status.textContent='Cleared.'; prog.hidden=true; note.textContent='';
   }, false);
 
-  // XHR tiny demo (data URL so no network dependency)
-  q('xhrBtn').addEventListener('click', function(){
-    var out = q('xhrOut');
-    try {
+  function setBusy(b){
+    upLitter.disabled=b; upCat.disabled=b; fileIn.disabled=b;
+    if(!b){ prog.hidden=true; } else { prog.hidden=false; prog.value=0; }
+  }
+
+  function xhrUpload(url, fieldsObj, file, cb){
+    try{
+      var fd = new FormData();
+      // Shared param for both APIs
+      fd.append('reqtype','fileupload');
+      // Litterbox time (optional)
+      if(fieldsObj && fieldsObj.time) fd.append('time', fieldsObj.time);
+      fd.append('fileToUpload', file, file.name);
+
       var x = new XMLHttpRequest();
+      x.open('POST', url, true);
       x.onreadystatechange = function(){
-        if (x.readyState === 4) {
-          if (x.status === 200 || x.status === 0) {
-            out.textContent = 'Response: "' + x.responseText + '"';
-          } else {
-            out.innerHTML = '<span class="fail">Error: '+x.status+'</span>';
-          }
+        if(x.readyState===4){
+          if(x.status===200){ cb(null, (x.responseText||'').trim()); }
+          else { cb(new Error('HTTP '+x.status)); }
         }
       };
-      x.open('GET', 'data:text/plain,hello%20xhr', true);
-      x.send(null);
-      out.innerHTML = '<span class="spin" aria-hidden="true"></span> Running…';
-    } catch(e) {
-      out.innerHTML = '<span class="fail">XHR not available</span>';
+      x.send(fd);
+    }catch(e){ cb(e); }
+  }
+
+  function makeQR(url){
+    // Use a public QR image API to avoid heavy JS libs on 3DS.
+    var api = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(url);
+    var img=document.createElement('img'); img.className='qr'; img.alt='QR'; img.src=api;
+    return img;
+  }
+
+  function addResult(fileName, link, tag){
+    var row=document.createElement('div'); row.className='item';
+    var meta=document.createElement('div'); meta.style.flex='1';
+    var a=document.createElement('a'); a.href=link; a.textContent=fileName; a.target='_blank'; a.rel='noreferrer';
+    var small=document.createElement('div'); small.className='mono muted'; small.textContent=link;
+    meta.appendChild(a); meta.appendChild(small);
+    var badge=document.createElement('div'); badge.className='pill'; badge.textContent=tag||'OK';
+    var qr = makeQR(link);
+    row.appendChild(qr); row.appendChild(meta); row.appendChild(badge);
+    results.appendChild(row);
+  }
+
+  function uploadAll(which){
+    if(!files.length){ alert('Pick images first.'); return; }
+    setBusy(true); results.innerHTML=''; note.textContent='';
+    var i=0, ok=0, fail=0, total=files.length;
+    prog.value=0; prog.max=total;
+
+    function next(){
+      if(i>=total){
+        setBusy(false);
+        var msg = ok+' uploaded, '+fail+' failed.';
+        status.textContent = msg;
+        return;
+      }
+      var file = files[i++];
+      status.textContent = 'Uploading '+file.name+' ('+i+'/'+total+')…';
+      var primaryURL = (which==='litter')? ENDPOINT.LITTERBOX : ENDPOINT.CATBOX;
+      var primaryFields = (which==='litter')? {time:'12h'} : {};
+
+      xhrUpload(primaryURL, primaryFields, file, function(err, link){
+        if(!err && link && link.indexOf('http')===0){
+          ok++; prog.value=ok+fail; addResult(file.name, link, which==='litter'?'TEMP':'PERM'); next(); return;
+        }
+        // fallback if chosen Litterbox fails
+        if(which==='litter'){
+          xhrUpload(ENDPOINT.CATBOX, {}, file, function(err2, link2){
+            if(!err2 && link2 && link2.indexOf('http')===0){
+              ok++; prog.value=ok+fail; addResult(file.name, link2, 'PERM (fallback)'); note.innerHTML='<span class="bad">Temporary upload failed — used permanent fallback.</span>';
+            }else{
+              fail++; prog.value=ok+fail;
+            }
+            next();
+          });
+        }else{
+          fail++; prog.value=ok+fail; next();
+        }
+      });
     }
-  }, false);
+    next();
+  }
+
+  upLitter.addEventListener('click', function(){ uploadAll('litter'); }, false);
+  upCat.addEventListener('click', function(){ uploadAll('cat'); }, false);
+
+  // Basic sanity info for 3DS
+  (function(){
+    var ua = navigator.userAgent||'';
+    var info = document.createElement('div');
+    info.className='muted'; info.style.marginTop='8px';
+    info.textContent='UA: '+ua;
+    document.querySelector('section.card').appendChild(info);
+  })();
 })();
 </script>
 </body>
