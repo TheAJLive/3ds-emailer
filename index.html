@@ -11,22 +11,22 @@
   button { margin-top:8px; padding:6px 10px; background:#222; color:#eee; border:1px solid #444; }
   #messages { border:1px solid #333; height:380px; overflow-y:scroll; padding:6px; background:#0f0f0f; }
   .msg { border-bottom:1px solid #222; padding:6px 0; }
-  .head { display:flex; align-items:center; gap:6px; }
-  .pfp { width:28px; height:28px; border-radius:50%; background:#333; }
+  .head { display:flex; align-items:center; }
+  .pfp { width:28px; height:28px; border-radius:50%; background:#333; margin-right:6px; }
   .name { font-weight:bold; color:#fff; }
-  .time { color:#aaa; font-size:12px; }
+  .time { color:#aaa; font-size:12px; margin-left:6px; }
   .content { margin-top:2px; white-space:pre-wrap; color:#e0e0e0; }
   img.attachment { max-width:100%; display:block; margin-top:4px; }
-  .row { margin-top:8px; }
+  a.attachment-link { color:#8ab4ff; display:block; font-size:12px; margin-top:2px; word-break:break-all; }
+  img.emoji { width:20px; height:20px; vertical-align:-4px; }
 </style>
 </head>
 <body>
 
-<!-- CONFIG -->
 <script>
   var WORKER_URL_DEFAULT = "https://discord-proxy.x528vbxtdp.workers.dev/"; /* <-- set this */
   var PAGE_PASSWORD = "3DS"; /* must match Worker SHARED_KEY */
-  var AUTO_REFRESH_MS = 4000; /* poll interval */
+  var AUTO_REFRESH_MS = 4000;
 </script>
 
 <script>
@@ -58,10 +58,8 @@
   <input id="file" type="file" accept="image/*">
 </label>
 
-<div class="row">
-  <button id="sendBtn">Send</button>
-  <button id="refreshBtn">Refresh</button>
-</div>
+<button id="sendBtn">Send</button>
+<button id="refreshBtn">Refresh</button>
 
 <h3>Messages</h3>
 <div id="messages"></div>
@@ -74,36 +72,56 @@
   var sendBtn = $('sendBtn'), refreshBtn = $('refreshBtn');
   var messages = $('messages');
 
-  // state for incremental updates
-  var lastMessageId = null;    // newest seen message id (Snowflake)
+  var lastMessageId = null;
   var pollTimer = null;
   var isRefreshing = false;
 
   worker.value = WORKER_URL_DEFAULT || "";
 
-  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&gt;').replace(/</g,'&lt;'); } // safe minimal
   function isoToLocal(ts){
     try{ var d=new Date(ts); var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
       var hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2); return y+'-'+m+'-'+day+' '+hh+':'+mm;
     }catch(e){ return ts||''; }
   }
   function xhrGET(url, cb){
-    var x=new XMLHttpRequest(); x.open('GET', url, true);
-    x.setRequestHeader('X-Key', PAGE_PASSWORD);
+    // No custom headers (works on 3DS). Pass key in query.
+    var sep = (url.indexOf('?')>=0) ? '&' : '?';
+    var full = url + sep + 'key=' + encodeURIComponent(PAGE_PASSWORD);
+    var x=new XMLHttpRequest(); x.open('GET', full, true);
     x.onreadystatechange=function(){ if(x.readyState===4){ cb(x.status, x.responseText); } };
     x.send();
   }
   function xhrPOST(url, form, cb){
+    // No custom headers. Include key in form body.
+    form.append('key', PAGE_PASSWORD);
     var x=new XMLHttpRequest(); x.open('POST', url, true);
-    x.setRequestHeader('X-Key', PAGE_PASSWORD);
     x.onreadystatechange=function(){ if(x.readyState===4){ cb(x.status, x.responseText); } };
     x.send(form);
   }
 
-  function renderAll(list){
-    messages.innerHTML = '';
-    for (var i=0;i<list.length;i++) addOne(list[i], true);
+  // Render text with custom Discord emojis (<:name:id> or <a:name:id>)
+  function renderEmojiHTML(text){
+    var re = /<(a?):([A-Za-z0-9_]{1,32}):(\d+)>/g;
+    var out = '';
+    var last = 0, m;
+    while ((m = re.exec(text)) !== null){
+      var i = m.index;
+      // escape plain chunk before the emoji
+      var plain = text.slice(last, i);
+      out += plain.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      var isAnim = m[1] === 'a';
+      var id = m[3];
+      var src = 'https://cdn.discordapp.com/emojis/'+id+(isAnim?'.gif':'.png')+'?size=32';
+      out += '<img class="emoji" src="'+src+'" alt=":'+m[2]+':">';
+      last = re.lastIndex;
+    }
+    // tail
+    var tail = text.slice(last);
+    out += tail.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return out;
   }
+
   function addOne(m, appendToEnd){
     var div = document.createElement('div'); div.className='msg';
 
@@ -122,7 +140,7 @@
     head.appendChild(time);
 
     var body = document.createElement('div'); body.className='content';
-    body.innerHTML = esc(m.content || '');
+    body.innerHTML = renderEmojiHTML(m.content || '');
 
     div.appendChild(head);
     div.appendChild(body);
@@ -130,16 +148,37 @@
     if (m.attachments && m.attachments.length){
       for (var j=0;j<m.attachments.length;j++){
         var a=m.attachments[j];
-        if (a.url && /\.(png|jpg|jpeg|gif|webp)$/i.test(a.url)){
+        if (a.url){
           var im = document.createElement('img');
           im.src = a.url; im.alt='attachment';
           im.className='attachment';
+          im.onerror = function(){
+            if (this && this.parentNode){
+              var lnk = document.createElement('a');
+              lnk.className='attachment-link';
+              lnk.href = this.src;
+              lnk.textContent = this.src;
+              this.parentNode.insertBefore(lnk, this.nextSibling);
+              this.remove();
+            }
+          };
           div.appendChild(im);
+
+          var link = document.createElement('a');
+          link.className = 'attachment-link';
+          link.href = a.url;
+          link.textContent = a.filename || a.url;
+          div.appendChild(link);
         }
       }
     }
 
     if (appendToEnd) messages.appendChild(div); else messages.insertBefore(div, messages.firstChild);
+  }
+
+  function renderAll(list){
+    messages.innerHTML = '';
+    for (var i=0;i<list.length;i++) addOne(list[i], true);
   }
 
   function loadGuilds(){
@@ -166,7 +205,7 @@
         for (var i=0;i<arr.length;i++){
           var opt=document.createElement('option'); opt.value=arr[i].id; opt.text=arr[i].name; channelSel.appendChild(opt);
         }
-        startPolling(); // will do initial full refresh
+        startPolling();
       } else { alert('Failed to load channels: '+st+' '+(txt||'')); }
     });
   }
@@ -178,9 +217,8 @@
       isRefreshing = false;
       if(st>=200&&st<300){
         var data=[]; try{ data=JSON.parse(txt)||[]; }catch(e){}
-        // Discord returns newest first; keep that
         renderAll(data);
-        if (data && data.length) lastMessageId = data[0].id; // newest
+        if (data && data.length) lastMessageId = data[0].id;
         if (cb) cb();
       }
     });
@@ -196,10 +234,7 @@
       if(st>=200&&st<300){
         var data=[]; try{ data=JSON.parse(txt)||[]; }catch(e){}
         if (data && data.length){
-          // API returns newest first; we want to prepend from newest->oldest so newest stays on top
-          for (var i=0;i<data.length;i++){
-            addOne(data[i], false);
-          }
+          for (var i=0;i<data.length;i++){ addOne(data[i], false); }
           lastMessageId = data[0].id;
         }
       }
@@ -208,9 +243,7 @@
 
   function startPolling(){
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
-    fullRefresh(function(){
-      pollTimer = setInterval(incrementalRefresh, AUTO_REFRESH_MS);
-    });
+    fullRefresh(function(){ pollTimer = setInterval(incrementalRefresh, AUTO_REFRESH_MS); });
   }
 
   function send(){
@@ -219,7 +252,6 @@
     if (file.files && file.files[0]) form.append('file', file.files[0], file.files[0].name||'image');
     xhrPOST(w, form, function(){
       file.value=''; content.value='';
-      // instant refresh right after send
       incrementalRefresh();
     });
   }
