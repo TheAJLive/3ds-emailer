@@ -5,40 +5,35 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Discord Bot Client (3DS-safe)</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 10px; }
+  body { margin:10px; background:#111; color:#eaeaea; font-family: Arial, sans-serif; }
   label { display:block; margin-top:8px; }
-  input[type=text], textarea, select { width: 100%; box-sizing: border-box; }
-  button { margin-top:8px; }
-  #row { margin: 8px 0; }
-  #messages { border:1px solid #ccc; height:380px; overflow-y:scroll; padding:6px; }
-  .msg { border-bottom:1px solid #eee; padding:6px 0; }
-  .head { display:flex; align-items:center; }
-  .pfp { width:28px; height:28px; border-radius:50%; margin-right:6px; }
-  .name { font-weight:bold; }
-  .time { color:#666; font-size:12px; margin-left:6px; }
-  .content { margin-top:2px; white-space:pre-wrap; }
-  .hint { color:#a00; font-size:12px; }
+  input[type=text], textarea, select { width:100%; box-sizing:border-box; background:#1a1a1a; color:#eee; border:1px solid #333; padding:6px; }
+  button { margin-top:8px; padding:6px 10px; background:#222; color:#eee; border:1px solid #444; }
+  #messages { border:1px solid #333; height:380px; overflow-y:scroll; padding:6px; background:#0f0f0f; }
+  .msg { border-bottom:1px solid #222; padding:6px 0; }
+  .head { display:flex; align-items:center; gap:6px; }
+  .pfp { width:28px; height:28px; border-radius:50%; background:#333; }
+  .name { font-weight:bold; color:#fff; }
+  .time { color:#aaa; font-size:12px; }
+  .content { margin-top:2px; white-space:pre-wrap; color:#e0e0e0; }
+  .embed { margin-top:4px; border-left:3px solid #5865F2; padding-left:6px; color:#cfcfff; }
+  .hint { color:#ff8a8a; font-size:12px; }
+  img.attachment { max-width:100%; display:block; margin-top:4px; }
 </style>
 </head>
 <body>
 
-<!-- ==== CONFIG (edit these two values) ==== -->
+<!-- ==== CONFIG (edit these) ==== -->
 <script>
-  // Worker URL of your deployed Cloudflare Worker:
-  var WORKER_URL_DEFAULT = "https://discord-proxy.x528vbxtdp.workers.dev/"; // e.g., https://discord-proxy.username.workers.dev
-  // Simple page password (must match SHARED_KEY in the Worker):
-  var PAGE_PASSWORD = "3DS";
+  var WORKER_URL_DEFAULT = "https://discord-proxy.x528vbxtdp.workers.dev/"; // <-- your Worker URL
+  var PAGE_PASSWORD = "changeme"; // <-- must match SHARED_KEY secret in Worker
 </script>
-<!-- ======================================= -->
+<!-- ============================= -->
 
 <script>
 (function(){
-  // Simple password gate (client-side). Worker also checks same key.
   var pass = prompt("Enter password:");
-  if(pass !== PAGE_PASSWORD){
-    document.write("Access denied.");
-    throw new Error("wrong password");
-  }
+  if(pass !== PAGE_PASSWORD){ document.write("Access denied."); throw new Error("wrong password"); }
 })();
 </script>
 
@@ -55,7 +50,7 @@
 <label>Channel
   <select id="channel"></select>
 </label>
-<small class="hint">Bot must be in the server with View Channel + Read Message History + Send Messages.</small>
+<small class="hint">Bot needs View Channel + Read Message History + Send Messages.</small>
 
 <label>Message
   <textarea id="content" rows="4" placeholder="Type..."></textarea>
@@ -79,36 +74,24 @@
   var sendBtn = $('sendBtn'), refreshBtn = $('refreshBtn');
   var messages = $('messages');
 
-  // Prefill worker URL
   worker.value = WORKER_URL_DEFAULT || "";
 
-  function esc(s){
-    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function isoToLocal(ts){
-    try{
-      var d = new Date(ts);
-      var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
-      var hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2);
-      return y+'-'+m+'-'+day+' '+hh+':'+mm;
+    try{ var d=new Date(ts); var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
+      var hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2); return y+'-'+m+'-'+day+' '+hh+':'+mm;
     }catch(e){ return ts||''; }
   }
   function xhrGET(url, cb){
-    var x = new XMLHttpRequest();
-    x.open('GET', url, true);
-    x.setRequestHeader('X-Key', PAGE_PASSWORD); // worker-side auth
-    x.onreadystatechange=function(){
-      if(x.readyState===4){ cb(x.status, x.responseText); }
-    };
+    var x=new XMLHttpRequest(); x.open('GET', url, true);
+    x.setRequestHeader('X-Key', PAGE_PASSWORD);
+    x.onreadystatechange=function(){ if(x.readyState===4){ cb(x.status, x.responseText); } };
     x.send();
   }
   function xhrPOST(url, form, cb){
-    var x = new XMLHttpRequest();
-    x.open('POST', url, true);
-    x.setRequestHeader('X-Key', PAGE_PASSWORD); // worker-side auth
-    x.onreadystatechange=function(){
-      if(x.readyState===4){ cb(x.status, x.responseText); }
-    };
+    var x=new XMLHttpRequest(); x.open('POST', url, true);
+    x.setRequestHeader('X-Key', PAGE_PASSWORD);
+    x.onreadystatechange=function(){ if(x.readyState===4){ cb(x.status, x.responseText); } };
     x.send(form);
   }
 
@@ -133,10 +116,24 @@
       head.appendChild(time);
 
       var body = document.createElement('div'); body.className='content';
-      body.innerHTML = esc(m.content||'');
-
-      div.appendChild(head);
-      div.appendChild(body);
+      var text = m.content && m.content.trim() ? m.content : "";
+      // Fallback to embed text if no content
+      if (!text && m.embeds && m.embeds.length){
+        for (var e=0; e<m.embeds.length; e++){
+          var E = m.embeds[e];
+          if (E.title || E.description){
+            var eb = document.createElement('div'); eb.className='embed';
+            if (E.title){ eb.innerHTML += '<b>'+esc(E.title)+'</b>'; }
+            if (E.description){ eb.innerHTML += (E.title ? '<br>' : '') + esc(E.description); }
+            div.appendChild(head.cloneNode(true)); // repeat header for clarity on 3DS
+            div.appendChild(eb);
+          }
+        }
+      } else {
+        body.innerHTML = esc(text);
+        div.appendChild(head);
+        div.appendChild(body);
+      }
 
       if (m.attachments && m.attachments.length){
         for (var j=0;j<m.attachments.length;j++){
@@ -144,83 +141,56 @@
           if (a.url && /\.(png|jpg|jpeg|gif|webp)$/i.test(a.url)){
             var im = document.createElement('img');
             im.src = a.url; im.alt='attachment';
-            im.style.maxWidth='100%'; im.style.display='block'; im.style.marginTop='4px';
+            im.className='attachment';
             div.appendChild(im);
           }
         }
       }
+
       messages.appendChild(div);
     }
   }
 
   function loadGuilds(){
-    var w = worker.value.trim();
-    if(!w){ alert('Set Worker URL'); return; }
+    var w = worker.value.trim(); if(!w){ alert('Set Worker URL'); return; }
     xhrGET(w+'?mode=guilds', function(st, txt){
       if(st>=200 && st<300){
         var arr=[]; try{ arr = JSON.parse(txt)||[]; }catch(e){}
         guildSel.innerHTML='';
         for (var i=0;i<arr.length;i++){
-          var opt = document.createElement('option');
-          opt.value = arr[i].id;
-          opt.text = arr[i].name;
-          guildSel.appendChild(opt);
+          var opt=document.createElement('option'); opt.value=arr[i].id; opt.text=arr[i].name; guildSel.appendChild(opt);
         }
-        loadChannels(); // auto-load channels for first guild
-      } else {
-        alert('Failed to load servers');
-      }
+        loadChannels();
+      } else { alert('Failed to load servers'); }
     });
   }
 
   function loadChannels(){
-    var w = worker.value.trim();
-    var gid = guildSel.value;
-    if(!w||!gid){ return; }
+    var w=worker.value.trim(), gid=guildSel.value; if(!w||!gid){ return; }
     xhrGET(w+'?mode=channels&guild_id='+encodeURIComponent(gid), function(st, txt){
       if(st>=200 && st<300){
         var arr=[]; try{ arr = JSON.parse(txt)||[]; }catch(e){}
         channelSel.innerHTML='';
         for (var i=0;i<arr.length;i++){
-          var opt = document.createElement('option');
-          opt.value = arr[i].id;
-          opt.text = arr[i].name;
-          channelSel.appendChild(opt);
+          var opt=document.createElement('option'); opt.value=arr[i].id; opt.text=arr[i].name; channelSel.appendChild(opt);
         }
-        refresh(); // auto-refresh first channel
-      } else {
-        alert('Failed to load channels');
-      }
+        refresh();
+      } else { alert('Failed to load channels'); }
     });
   }
 
   function refresh(){
-    var w = worker.value.trim(), ch = channelSel.value;
-    if(!w||!ch){ return; }
+    var w=worker.value.trim(), ch=channelSel.value; if(!w||!ch){ return; }
     xhrGET(w+'?mode=history&channel_id='+encodeURIComponent(ch), function(st, txt){
-      if(st>=200&&st<300){
-        var data=[]; try{ data = JSON.parse(txt)||[]; }catch(e){}
-        render(data);
-      }
+      if(st>=200&&st<300){ var data=[]; try{ data=JSON.parse(txt)||[]; }catch(e){} render(data); }
     });
   }
 
   function send(){
-    var w = worker.value.trim(), ch = channelSel.value;
-    if(!w||!ch){ alert('Choose server and channel'); return; }
-
-    var form = new FormData();
-    form.append('mode','send');
-    form.append('channel_id', ch);
-    form.append('content', content.value||'');
+    var w=worker.value.trim(), ch=channelSel.value; if(!w||!ch){ alert('Choose server and channel'); return; }
+    var form=new FormData(); form.append('mode','send'); form.append('channel_id', ch); form.append('content', content.value||'');
     if (file.files && file.files[0]) form.append('file', file.files[0], file.files[0].name||'image');
-
-    xhrPOST(w, form, function(st){
-      // reset so you can send more without page refresh
-      file.value = '';
-      content.value = '';
-      refresh();
-    });
+    xhrPOST(w, form, function(){ file.value=''; content.value=''; refresh(); });
   }
 
   guildSel.onchange = loadChannels;
@@ -228,7 +198,6 @@
   sendBtn.onclick = send;
   refreshBtn.onclick = refresh;
 
-  // kick off
   loadGuilds();
 })();
 </script>
