@@ -16,19 +16,18 @@
   .name { font-weight:bold; color:#fff; }
   .time { color:#aaa; font-size:12px; }
   .content { margin-top:2px; white-space:pre-wrap; color:#e0e0e0; }
-  .embed { margin-top:4px; border-left:3px solid #5865F2; padding-left:6px; color:#cfcfff; }
-  .hint { color:#ff8a8a; font-size:12px; }
   img.attachment { max-width:100%; display:block; margin-top:4px; }
+  .row { margin-top:8px; }
 </style>
 </head>
 <body>
 
-<!-- ==== CONFIG (edit these) ==== -->
+<!-- CONFIG -->
 <script>
-  var WORKER_URL_DEFAULT = "https://discord-proxy.x528vbxtdp.workers.dev/"; // <-- your Worker URL
-  var PAGE_PASSWORD = "3DS"; // <-- must match SHARED_KEY secret in Worker
+  var WORKER_URL_DEFAULT = "https://YOUR-WORKER.workers.dev/"; /* <-- set this */
+  var PAGE_PASSWORD = "3DS"; /* must match Worker SHARED_KEY */
+  var AUTO_REFRESH_MS = 4000; /* poll interval */
 </script>
-<!-- ============================= -->
 
 <script>
 (function(){
@@ -50,18 +49,19 @@
 <label>Channel
   <select id="channel"></select>
 </label>
-<small class="hint">Bot needs View Channel + Read Message History + Send Messages.</small>
 
 <label>Message
-  <textarea id="content" rows="4" placeholder="Type..."></textarea>
+  <textarea id="content" rows="3" placeholder="Type..."></textarea>
 </label>
 
 <label>Image (single)
   <input id="file" type="file" accept="image/*">
 </label>
 
-<button id="sendBtn">Send</button>
-<button id="refreshBtn">Refresh</button>
+<div class="row">
+  <button id="sendBtn">Send</button>
+  <button id="refreshBtn">Refresh</button>
+</div>
 
 <h3>Messages</h3>
 <div id="messages"></div>
@@ -73,6 +73,11 @@
   var content = $('content'), file = $('file');
   var sendBtn = $('sendBtn'), refreshBtn = $('refreshBtn');
   var messages = $('messages');
+
+  // state for incremental updates
+  var lastMessageId = null;    // newest seen message id (Snowflake)
+  var pollTimer = null;
+  var isRefreshing = false;
 
   worker.value = WORKER_URL_DEFAULT || "";
 
@@ -95,60 +100,46 @@
     x.send(form);
   }
 
-  function render(list){
+  function renderAll(list){
     messages.innerHTML = '';
-    for (var i=0;i<list.length;i++){
-      var m = list[i];
-      var div = document.createElement('div'); div.className='msg';
+    for (var i=0;i<list.length;i++) addOne(list[i], true);
+  }
+  function addOne(m, appendToEnd){
+    var div = document.createElement('div'); div.className='msg';
 
-      var head = document.createElement('div'); head.className='head';
-      var img = document.createElement('img'); img.className='pfp'; img.src = m.avatar_url || '';
-      head.appendChild(img);
+    var head = document.createElement('div'); head.className='head';
+    var img = document.createElement('img'); img.className='pfp'; img.src = m.avatar_url || '';
+    head.appendChild(img);
 
-      var name = document.createElement('span'); name.className='name';
-      var shown = m.display_name || m.username || 'user';
-      name.textContent = shown;
-      if (m.role_color) name.style.color = m.role_color;
-      head.appendChild(name);
+    var name = document.createElement('span'); name.className='name';
+    var shown = m.display_name || m.username || 'user';
+    name.textContent = shown;
+    if (m.role_color) name.style.color = m.role_color;
+    head.appendChild(name);
 
-      var time = document.createElement('span'); time.className='time';
-      time.textContent = '· ' + isoToLocal(m.timestamp);
-      head.appendChild(time);
+    var time = document.createElement('span'); time.className='time';
+    time.textContent = ' · ' + isoToLocal(m.timestamp);
+    head.appendChild(time);
 
-      var body = document.createElement('div'); body.className='content';
-      var text = m.content && m.content.trim() ? m.content : "";
-      // Fallback to embed text if no content
-      if (!text && m.embeds && m.embeds.length){
-        for (var e=0; e<m.embeds.length; e++){
-          var E = m.embeds[e];
-          if (E.title || E.description){
-            var eb = document.createElement('div'); eb.className='embed';
-            if (E.title){ eb.innerHTML += '<b>'+esc(E.title)+'</b>'; }
-            if (E.description){ eb.innerHTML += (E.title ? '<br>' : '') + esc(E.description); }
-            div.appendChild(head.cloneNode(true)); // repeat header for clarity on 3DS
-            div.appendChild(eb);
-          }
-        }
-      } else {
-        body.innerHTML = esc(text);
-        div.appendChild(head);
-        div.appendChild(body);
-      }
+    var body = document.createElement('div'); body.className='content';
+    body.innerHTML = esc(m.content || '');
 
-      if (m.attachments && m.attachments.length){
-        for (var j=0;j<m.attachments.length;j++){
-          var a=m.attachments[j];
-          if (a.url && /\.(png|jpg|jpeg|gif|webp)$/i.test(a.url)){
-            var im = document.createElement('img');
-            im.src = a.url; im.alt='attachment';
-            im.className='attachment';
-            div.appendChild(im);
-          }
+    div.appendChild(head);
+    div.appendChild(body);
+
+    if (m.attachments && m.attachments.length){
+      for (var j=0;j<m.attachments.length;j++){
+        var a=m.attachments[j];
+        if (a.url && /\.(png|jpg|jpeg|gif|webp)$/i.test(a.url)){
+          var im = document.createElement('img');
+          im.src = a.url; im.alt='attachment';
+          im.className='attachment';
+          div.appendChild(im);
         }
       }
-
-      messages.appendChild(div);
     }
+
+    if (appendToEnd) messages.appendChild(div); else messages.insertBefore(div, messages.firstChild);
   }
 
   function loadGuilds(){
@@ -161,11 +152,12 @@
           var opt=document.createElement('option'); opt.value=arr[i].id; opt.text=arr[i].name; guildSel.appendChild(opt);
         }
         loadChannels();
-      } else { alert('Failed to load servers'); }
+      } else { alert('Failed to load servers: '+st+' '+(txt||'')); }
     });
   }
 
   function loadChannels(){
+    lastMessageId = null;
     var w=worker.value.trim(), gid=guildSel.value; if(!w||!gid){ return; }
     xhrGET(w+'?mode=channels&guild_id='+encodeURIComponent(gid), function(st, txt){
       if(st>=200 && st<300){
@@ -174,15 +166,50 @@
         for (var i=0;i<arr.length;i++){
           var opt=document.createElement('option'); opt.value=arr[i].id; opt.text=arr[i].name; channelSel.appendChild(opt);
         }
-        refresh();
-      } else { alert('Failed to load channels'); }
+        startPolling(); // will do initial full refresh
+      } else { alert('Failed to load channels: '+st+' '+(txt||'')); }
     });
   }
 
-  function refresh(){
-    var w=worker.value.trim(), ch=channelSel.value; if(!w||!ch){ return; }
+  function fullRefresh(cb){
+    if (isRefreshing) return; isRefreshing = true;
+    var w=worker.value.trim(), ch=channelSel.value; if(!w||!ch){ isRefreshing=false; return; }
     xhrGET(w+'?mode=history&channel_id='+encodeURIComponent(ch), function(st, txt){
-      if(st>=200&&st<300){ var data=[]; try{ data=JSON.parse(txt)||[]; }catch(e){} render(data); }
+      isRefreshing = false;
+      if(st>=200&&st<300){
+        var data=[]; try{ data=JSON.parse(txt)||[]; }catch(e){}
+        // Discord returns newest first; keep that
+        renderAll(data);
+        if (data && data.length) lastMessageId = data[0].id; // newest
+        if (cb) cb();
+      }
+    });
+  }
+
+  function incrementalRefresh(){
+    if (isRefreshing) return; isRefreshing = true;
+    var w=worker.value.trim(), ch=channelSel.value; if(!w||!ch){ isRefreshing=false; return; }
+    var url = w+'?mode=history&channel_id='+encodeURIComponent(ch);
+    if (lastMessageId) url += '&after='+encodeURIComponent(lastMessageId);
+    xhrGET(url, function(st, txt){
+      isRefreshing = false;
+      if(st>=200&&st<300){
+        var data=[]; try{ data=JSON.parse(txt)||[]; }catch(e){}
+        if (data && data.length){
+          // API returns newest first; we want to prepend from newest->oldest so newest stays on top
+          for (var i=0;i<data.length;i++){
+            addOne(data[i], false);
+          }
+          lastMessageId = data[0].id;
+        }
+      }
+    });
+  }
+
+  function startPolling(){
+    if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
+    fullRefresh(function(){
+      pollTimer = setInterval(incrementalRefresh, AUTO_REFRESH_MS);
     });
   }
 
@@ -190,13 +217,17 @@
     var w=worker.value.trim(), ch=channelSel.value; if(!w||!ch){ alert('Choose server and channel'); return; }
     var form=new FormData(); form.append('mode','send'); form.append('channel_id', ch); form.append('content', content.value||'');
     if (file.files && file.files[0]) form.append('file', file.files[0], file.files[0].name||'image');
-    xhrPOST(w, form, function(){ file.value=''; content.value=''; refresh(); });
+    xhrPOST(w, form, function(){
+      file.value=''; content.value='';
+      // instant refresh right after send
+      incrementalRefresh();
+    });
   }
 
   guildSel.onchange = loadChannels;
-  channelSel.onchange = refresh;
+  channelSel.onchange = startPolling;
   sendBtn.onclick = send;
-  refreshBtn.onclick = refresh;
+  refreshBtn.onclick = fullRefresh;
 
   loadGuilds();
 })();
