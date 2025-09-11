@@ -7,29 +7,55 @@
 <style>
   body { font-family: Arial, sans-serif; margin: 10px; }
   label { display:block; margin-top:8px; }
-  input[type=text], textarea { width: 100%; box-sizing: border-box; }
+  input[type=text], textarea, select { width: 100%; box-sizing: border-box; }
   button { margin-top:8px; }
+  #row { margin: 8px 0; }
   #messages { border:1px solid #ccc; height:380px; overflow-y:scroll; padding:6px; }
   .msg { border-bottom:1px solid #eee; padding:6px 0; }
   .head { display:flex; align-items:center; }
   .pfp { width:28px; height:28px; border-radius:50%; margin-right:6px; }
   .name { font-weight:bold; }
-  .time { color:#666; font-size:12px; }
+  .time { color:#666; font-size:12px; margin-left:6px; }
   .content { margin-top:2px; white-space:pre-wrap; }
   .hint { color:#a00; font-size:12px; }
 </style>
 </head>
 <body>
+
+<!-- ==== CONFIG (edit these two values) ==== -->
+<script>
+  // Worker URL of your deployed Cloudflare Worker:
+  var WORKER_URL_DEFAULT = "https://discord-proxy.x528vbxtdp.workers.dev/"; // e.g., https://discord-proxy.username.workers.dev
+  // Simple page password (must match SHARED_KEY in the Worker):
+  var PAGE_PASSWORD = "3DS";
+</script>
+<!-- ======================================= -->
+
+<script>
+(function(){
+  // Simple password gate (client-side). Worker also checks same key.
+  var pass = prompt("Enter password:");
+  if(pass !== PAGE_PASSWORD){
+    document.write("Access denied.");
+    throw new Error("wrong password");
+  }
+})();
+</script>
+
 <h2>Discord Bot Client</h2>
 
 <label>Worker URL
   <input id="worker" type="text" placeholder="https://your-worker.workers.dev">
 </label>
 
-<label>Channel ID
-  <input id="channel" type="text" placeholder="123456789012345678">
+<label>Server (Guild)
+  <select id="guild"></select>
 </label>
-<small class="hint">Bot must be in the server, with View Channel + Read Message History + Send Messages.</small>
+
+<label>Channel
+  <select id="channel"></select>
+</label>
+<small class="hint">Bot must be in the server with View Channel + Read Message History + Send Messages.</small>
 
 <label>Message
   <textarea id="content" rows="4" placeholder="Type..."></textarea>
@@ -48,15 +74,17 @@
 <script>
 (function(){
   var $ = function(id){ return document.getElementById(id); };
-  var worker = $('worker'), channel = $('channel');
+  var worker = $('worker'), guildSel = $('guild'), channelSel = $('channel');
   var content = $('content'), file = $('file');
   var sendBtn = $('sendBtn'), refreshBtn = $('refreshBtn');
   var messages = $('messages');
 
+  // Prefill worker URL
+  worker.value = WORKER_URL_DEFAULT || "";
+
   function esc(s){
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
-
   function isoToLocal(ts){
     try{
       var d = new Date(ts);
@@ -64,6 +92,24 @@
       var hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2);
       return y+'-'+m+'-'+day+' '+hh+':'+mm;
     }catch(e){ return ts||''; }
+  }
+  function xhrGET(url, cb){
+    var x = new XMLHttpRequest();
+    x.open('GET', url, true);
+    x.setRequestHeader('X-Key', PAGE_PASSWORD); // worker-side auth
+    x.onreadystatechange=function(){
+      if(x.readyState===4){ cb(x.status, x.responseText); }
+    };
+    x.send();
+  }
+  function xhrPOST(url, form, cb){
+    var x = new XMLHttpRequest();
+    x.open('POST', url, true);
+    x.setRequestHeader('X-Key', PAGE_PASSWORD); // worker-side auth
+    x.onreadystatechange=function(){
+      if(x.readyState===4){ cb(x.status, x.responseText); }
+    };
+    x.send(form);
   }
 
   function render(list){
@@ -78,10 +124,9 @@
 
       var name = document.createElement('span'); name.className='name';
       var shown = m.display_name || m.username || 'user';
-      name.textContent = shown + ' ';
+      name.textContent = shown;
+      if (m.role_color) name.style.color = m.role_color;
       head.appendChild(name);
-
-      if (m.role_color){ name.style.color = m.role_color; }
 
       var time = document.createElement('span'); time.className='time';
       time.textContent = '· ' + isoToLocal(m.timestamp);
@@ -108,24 +153,61 @@
     }
   }
 
-  function refresh(){
-    var w = worker.value.trim(), ch = channel.value.trim();
-    if(!w||!ch){ alert('Set Worker URL and Channel ID'); return; }
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', w+'?mode=history&channel_id='+encodeURIComponent(ch), true);
-    xhr.onreadystatechange=function(){
-      if(xhr.readyState===4){
-        if(xhr.status>=200&&xhr.status<300){
-          try{ render(JSON.parse(xhr.responseText)||[]); }catch(e){}
+  function loadGuilds(){
+    var w = worker.value.trim();
+    if(!w){ alert('Set Worker URL'); return; }
+    xhrGET(w+'?mode=guilds', function(st, txt){
+      if(st>=200 && st<300){
+        var arr=[]; try{ arr = JSON.parse(txt)||[]; }catch(e){}
+        guildSel.innerHTML='';
+        for (var i=0;i<arr.length;i++){
+          var opt = document.createElement('option');
+          opt.value = arr[i].id;
+          opt.text = arr[i].name;
+          guildSel.appendChild(opt);
         }
+        loadChannels(); // auto-load channels for first guild
+      } else {
+        alert('Failed to load servers');
       }
-    };
-    xhr.send();
+    });
+  }
+
+  function loadChannels(){
+    var w = worker.value.trim();
+    var gid = guildSel.value;
+    if(!w||!gid){ return; }
+    xhrGET(w+'?mode=channels&guild_id='+encodeURIComponent(gid), function(st, txt){
+      if(st>=200 && st<300){
+        var arr=[]; try{ arr = JSON.parse(txt)||[]; }catch(e){}
+        channelSel.innerHTML='';
+        for (var i=0;i<arr.length;i++){
+          var opt = document.createElement('option');
+          opt.value = arr[i].id;
+          opt.text = arr[i].name;
+          channelSel.appendChild(opt);
+        }
+        refresh(); // auto-refresh first channel
+      } else {
+        alert('Failed to load channels');
+      }
+    });
+  }
+
+  function refresh(){
+    var w = worker.value.trim(), ch = channelSel.value;
+    if(!w||!ch){ return; }
+    xhrGET(w+'?mode=history&channel_id='+encodeURIComponent(ch), function(st, txt){
+      if(st>=200&&st<300){
+        var data=[]; try{ data = JSON.parse(txt)||[]; }catch(e){}
+        render(data);
+      }
+    });
   }
 
   function send(){
-    var w = worker.value.trim(), ch = channel.value.trim();
-    if(!w||!ch){ alert('Set Worker URL and Channel ID'); return; }
+    var w = worker.value.trim(), ch = channelSel.value;
+    if(!w||!ch){ alert('Choose server and channel'); return; }
 
     var form = new FormData();
     form.append('mode','send');
@@ -133,24 +215,21 @@
     form.append('content', content.value||'');
     if (file.files && file.files[0]) form.append('file', file.files[0], file.files[0].name||'image');
 
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', w, true);
-    xhr.onreadystatechange=function(){
-      if(xhr.readyState===4){
-        // reset input so you can upload/send again without refresh
-        file.value = '';
-        content.value = '';
-        refresh();
-      }
-    };
-    xhr.send(form);
+    xhrPOST(w, form, function(st){
+      // reset so you can send more without page refresh
+      file.value = '';
+      content.value = '';
+      refresh();
+    });
   }
 
+  guildSel.onchange = loadChannels;
+  channelSel.onchange = refresh;
   sendBtn.onclick = send;
   refreshBtn.onclick = refresh;
 
-  // Auto-refresh once if worker/channel prefilled
-  setTimeout(refresh, 300);
+  // kick off
+  loadGuilds();
 })();
 </script>
 </body>
