@@ -2,227 +2,155 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3DS → Phone: Image Uploader</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Discord Bot Client (3DS-safe)</title>
 <style>
-  :root{--bg:#0d1117;--fg:#e6edf3;--muted:#8b949e;--card:#161b22;--line:#262b33;--accent:#58a6ff;--ok:#2ea043;--bad:#f85149;}
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font:14px/1.35 -apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif}
-  header{padding:10px;border-bottom:1px solid #222;background:#0b0f14;position:sticky;top:0;z-index:10}
-  header h1{margin:0;font-size:16px}
-  main{max-width:700px;margin:0 auto;padding:14px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}
-  .row{display:flex;align-items:center;gap:8px}
-  .grid{display:grid;grid-template-columns:1fr;gap:10px}
-  @media (min-width:560px){.grid2{grid-template-columns:1fr 1fr}}
-  .btn{display:inline-block;border:1px solid var(--line);background:#0f141b;color:var(--fg);padding:8px 10px;border-radius:8px;font-weight:700;text-decoration:none}
-  .btn[disabled]{opacity:.5}
-  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--muted);font-size:12px;margin-right:6px}
-  .muted{color:var(--muted)}
-  .ok{color:var(--ok)} .bad{color:var(--bad)}
-  .thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-  .thumb{border:1px solid var(--line);border-radius:8px;overflow:hidden;width:84px;height:84px;background:#0b0f14;display:flex;align-items:center;justify-content:center}
-  .thumb img{max-width:100%;max-height:100%;display:block}
-  .list{border-top:1px solid var(--line);margin-top:8px}
-  .item{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
-  .item:last-child{border-bottom:0}
-  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
-  .qr{width:120px;height:120px;border:1px solid var(--line);border-radius:8px;background:#0b0f14}
-  progress{width:100%;height:12px}
-  .center{text-align:center}
+  body { font-family: Arial, sans-serif; margin: 10px; }
+  label { display:block; margin-top:8px; }
+  input[type=text], textarea { width: 100%; box-sizing: border-box; }
+  button { margin-top:8px; }
+  #messages { border:1px solid #ccc; height:380px; overflow-y:scroll; padding:6px; }
+  .msg { border-bottom:1px solid #eee; padding:6px 0; }
+  .head { display:flex; align-items:center; }
+  .pfp { width:28px; height:28px; border-radius:50%; margin-right:6px; }
+  .name { font-weight:bold; }
+  .time { color:#666; font-size:12px; }
+  .content { margin-top:2px; white-space:pre-wrap; }
+  .hint { color:#a00; font-size:12px; }
 </style>
 </head>
 <body>
-<header><h1>3DS → Phone: Image Uploader</h1></header>
-<main>
-  <section class="card">
-    <div class="row" style="justify-content:space-between">
-      <div><span class="pill">Static</span><span class="pill">No login</span><span class="pill">Multi-image</span></div>
-      <div class="muted">Tip: Scan the QR codes with your phone.</div>
-    </div>
-  </section>
+<h2>Discord Bot Client</h2>
 
-  <section class="card">
-    <div class="grid grid2">
-      <label>
-        <div class="muted">Pick images (multiple OK)</div>
-        <input id="fileIn" type="file" accept="image/*" multiple style="margin-top:6px;width:100%">
-      </label>
-      <div>
-        <div class="muted">Upload target</div>
-        <div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">
-          <button id="upLitter" class="btn">Upload (Temporary 12h)</button>
-          <button id="upCatbox" class="btn">Upload (Permanent)</button>
-          <button id="clearBtn" class="btn" title="Clear results">Clear</button>
-        </div>
-      </div>
-    </div>
-    <div id="thumbs" class="thumbs"></div>
-    <div id="status" class="muted" style="margin-top:8px">No files selected.</div>
-    <div style="margin-top:8px"><progress id="prog" max="100" value="0" hidden></progress></div>
-  </section>
+<label>Worker URL
+  <input id="worker" type="text" placeholder="https://your-worker.workers.dev">
+</label>
 
-  <section class="card">
-    <h3 style="margin:4px 0 8px">Results</h3>
-    <div class="list" id="results"></div>
-    <div class="muted" id="note" style="margin-top:8px"></div>
-  </section>
+<label>Channel ID
+  <input id="channel" type="text" placeholder="123456789012345678">
+</label>
+<small class="hint">Bot must be in the server, with View Channel + Read Message History + Send Messages.</small>
 
-  <section class="card">
-    <h3 style="margin:4px 0 8px">How to use (quick)</h3>
-    <ol style="margin:0 0 6px 18px">
-      <li>On your 3DS, open this page, pick multiple images, press an Upload button.</li>
-      <li>Each uploaded file shows a URL and a QR. Scan the QR with your phone to download.</li>
-    </ol>
-    <div class="muted">Temporary = expires (~12 hours). Permanent = doesn’t expire. If temporary fails, try Permanent.</div>
-  </section>
+<label>Message
+  <textarea id="content" rows="4" placeholder="Type..."></textarea>
+</label>
 
-  <p class="center muted">© demo. uses third-party file hosts. no tracking.</p>
-</main>
+<label>Image (single)
+  <input id="file" type="file" accept="image/*">
+</label>
+
+<button id="sendBtn">Send</button>
+<button id="refreshBtn">Refresh</button>
+
+<h3>Messages</h3>
+<div id="messages"></div>
 
 <script>
 (function(){
-  // Endpoints (try Litterbox first; fall back to Catbox)
-  var ENDPOINT = {
-    LITTERBOX: 'https://litterbox.catbox.moe/resources/internals/api.php',
-    CATBOX:    'https://catbox.moe/user/api.php'
-  };
+  var $ = function(id){ return document.getElementById(id); };
+  var worker = $('worker'), channel = $('channel');
+  var content = $('content'), file = $('file');
+  var sendBtn = $('sendBtn'), refreshBtn = $('refreshBtn');
+  var messages = $('messages');
 
-  // Elements
-  function q(id){ return document.getElementById(id); }
-  var fileIn = q('fileIn'), thumbs = q('thumbs'), status = q('status'), results = q('results');
-  var upLitter = q('upLitter'), upCat = q('upCatbox'), prog = q('prog'), note = q('note'), clearBtn = q('clearBtn');
-
-  // State
-  var files = [];
-
-  function fmtBytes(n){
-    var u=['B','KB','MB','GB']; var i=0; while(n>=1024 && i<u.length-1){ n/=1024; i++; }
-    return (Math.round(n*10)/10)+' '+u[i];
+  function esc(s){
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  function renderThumbs(){
-    thumbs.innerHTML='';
-    if(!files.length){ status.textContent='No files selected.'; return; }
-    for(var i=0;i<files.length;i++){
-      (function(file){
-        var div=document.createElement('div'); div.className='thumb';
-        var img=document.createElement('img');
-        // Show tiny preview (safe for 3DS)
-        var r=new FileReader();
-        r.onload=function(){ img.src=r.result; };
-        r.readAsDataURL(file);
-        div.appendChild(img); thumbs.appendChild(div);
-      })(files[i]);
-    }
-    status.textContent=files.length+' file(s) selected, total ~'+fmtBytes(files.reduce(function(a,f){return a+f.size;},0));
-  }
-
-  fileIn.addEventListener('change', function(){
-    files = Array.prototype.slice.call(fileIn.files||[]);
-    renderThumbs();
-  }, false);
-
-  clearBtn.addEventListener('click', function(){
-    files=[]; fileIn.value=''; thumbs.innerHTML=''; results.innerHTML=''; status.textContent='Cleared.'; prog.hidden=true; note.textContent='';
-  }, false);
-
-  function setBusy(b){
-    upLitter.disabled=b; upCat.disabled=b; fileIn.disabled=b;
-    if(!b){ prog.hidden=true; } else { prog.hidden=false; prog.value=0; }
-  }
-
-  function xhrUpload(url, fieldsObj, file, cb){
+  function isoToLocal(ts){
     try{
-      var fd = new FormData();
-      // Shared param for both APIs
-      fd.append('reqtype','fileupload');
-      // Litterbox time (optional)
-      if(fieldsObj && fieldsObj.time) fd.append('time', fieldsObj.time);
-      fd.append('fileToUpload', file, file.name);
+      var d = new Date(ts);
+      var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
+      var hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2);
+      return y+'-'+m+'-'+day+' '+hh+':'+mm;
+    }catch(e){ return ts||''; }
+  }
 
-      var x = new XMLHttpRequest();
-      x.open('POST', url, true);
-      x.onreadystatechange = function(){
-        if(x.readyState===4){
-          if(x.status===200){ cb(null, (x.responseText||'').trim()); }
-          else { cb(new Error('HTTP '+x.status)); }
+  function render(list){
+    messages.innerHTML = '';
+    for (var i=0;i<list.length;i++){
+      var m = list[i];
+      var div = document.createElement('div'); div.className='msg';
+
+      var head = document.createElement('div'); head.className='head';
+      var img = document.createElement('img'); img.className='pfp'; img.src = m.avatar_url || '';
+      head.appendChild(img);
+
+      var name = document.createElement('span'); name.className='name';
+      var shown = m.display_name || m.username || 'user';
+      name.textContent = shown + ' ';
+      head.appendChild(name);
+
+      if (m.role_color){ name.style.color = m.role_color; }
+
+      var time = document.createElement('span'); time.className='time';
+      time.textContent = '· ' + isoToLocal(m.timestamp);
+      head.appendChild(time);
+
+      var body = document.createElement('div'); body.className='content';
+      body.innerHTML = esc(m.content||'');
+
+      div.appendChild(head);
+      div.appendChild(body);
+
+      if (m.attachments && m.attachments.length){
+        for (var j=0;j<m.attachments.length;j++){
+          var a=m.attachments[j];
+          if (a.url && /\.(png|jpg|jpeg|gif|webp)$/i.test(a.url)){
+            var im = document.createElement('img');
+            im.src = a.url; im.alt='attachment';
+            im.style.maxWidth='100%'; im.style.display='block'; im.style.marginTop='4px';
+            div.appendChild(im);
+          }
         }
-      };
-      x.send(fd);
-    }catch(e){ cb(e); }
-  }
-
-  function makeQR(url){
-    // Use a public QR image API to avoid heavy JS libs on 3DS.
-    var api = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(url);
-    var img=document.createElement('img'); img.className='qr'; img.alt='QR'; img.src=api;
-    return img;
-  }
-
-  function addResult(fileName, link, tag){
-    var row=document.createElement('div'); row.className='item';
-    var meta=document.createElement('div'); meta.style.flex='1';
-    var a=document.createElement('a'); a.href=link; a.textContent=fileName; a.target='_blank'; a.rel='noreferrer';
-    var small=document.createElement('div'); small.className='mono muted'; small.textContent=link;
-    meta.appendChild(a); meta.appendChild(small);
-    var badge=document.createElement('div'); badge.className='pill'; badge.textContent=tag||'OK';
-    var qr = makeQR(link);
-    row.appendChild(qr); row.appendChild(meta); row.appendChild(badge);
-    results.appendChild(row);
-  }
-
-  function uploadAll(which){
-    if(!files.length){ alert('Pick images first.'); return; }
-    setBusy(true); results.innerHTML=''; note.textContent='';
-    var i=0, ok=0, fail=0, total=files.length;
-    prog.value=0; prog.max=total;
-
-    function next(){
-      if(i>=total){
-        setBusy(false);
-        var msg = ok+' uploaded, '+fail+' failed.';
-        status.textContent = msg;
-        return;
       }
-      var file = files[i++];
-      status.textContent = 'Uploading '+file.name+' ('+i+'/'+total+')…';
-      var primaryURL = (which==='litter')? ENDPOINT.LITTERBOX : ENDPOINT.CATBOX;
-      var primaryFields = (which==='litter')? {time:'12h'} : {};
-
-      xhrUpload(primaryURL, primaryFields, file, function(err, link){
-        if(!err && link && link.indexOf('http')===0){
-          ok++; prog.value=ok+fail; addResult(file.name, link, which==='litter'?'TEMP':'PERM'); next(); return;
-        }
-        // fallback if chosen Litterbox fails
-        if(which==='litter'){
-          xhrUpload(ENDPOINT.CATBOX, {}, file, function(err2, link2){
-            if(!err2 && link2 && link2.indexOf('http')===0){
-              ok++; prog.value=ok+fail; addResult(file.name, link2, 'PERM (fallback)'); note.innerHTML='<span class="bad">Temporary upload failed — used permanent fallback.</span>';
-            }else{
-              fail++; prog.value=ok+fail;
-            }
-            next();
-          });
-        }else{
-          fail++; prog.value=ok+fail; next();
-        }
-      });
+      messages.appendChild(div);
     }
-    next();
   }
 
-  upLitter.addEventListener('click', function(){ uploadAll('litter'); }, false);
-  upCat.addEventListener('click', function(){ uploadAll('cat'); }, false);
+  function refresh(){
+    var w = worker.value.trim(), ch = channel.value.trim();
+    if(!w||!ch){ alert('Set Worker URL and Channel ID'); return; }
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', w+'?mode=history&channel_id='+encodeURIComponent(ch), true);
+    xhr.onreadystatechange=function(){
+      if(xhr.readyState===4){
+        if(xhr.status>=200&&xhr.status<300){
+          try{ render(JSON.parse(xhr.responseText)||[]); }catch(e){}
+        }
+      }
+    };
+    xhr.send();
+  }
 
-  // Basic sanity info for 3DS
-  (function(){
-    var ua = navigator.userAgent||'';
-    var info = document.createElement('div');
-    info.className='muted'; info.style.marginTop='8px';
-    info.textContent='UA: '+ua;
-    document.querySelector('section.card').appendChild(info);
-  })();
+  function send(){
+    var w = worker.value.trim(), ch = channel.value.trim();
+    if(!w||!ch){ alert('Set Worker URL and Channel ID'); return; }
+
+    var form = new FormData();
+    form.append('mode','send');
+    form.append('channel_id', ch);
+    form.append('content', content.value||'');
+    if (file.files && file.files[0]) form.append('file', file.files[0], file.files[0].name||'image');
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', w, true);
+    xhr.onreadystatechange=function(){
+      if(xhr.readyState===4){
+        // reset input so you can upload/send again without refresh
+        file.value = '';
+        content.value = '';
+        refresh();
+      }
+    };
+    xhr.send(form);
+  }
+
+  sendBtn.onclick = send;
+  refreshBtn.onclick = refresh;
+
+  // Auto-refresh once if worker/channel prefilled
+  setTimeout(refresh, 300);
 })();
 </script>
 </body>
